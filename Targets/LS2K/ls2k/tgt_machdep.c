@@ -282,6 +282,14 @@ DPMCFG |= 0x8;
 	CPU_SetSR(0, SR_BOOT_EXC_VEC);
 #endif
 	dbginit(NULL);
+	{
+		int spi_read_area(int flashaddr, char *buffer, int size);
+		int spi_write_area(int flashaddr,char *buffer,int size);
+		int spi_erase_area(unsigned int saddr,unsigned int eaddr,unsigned sectorsize);
+		newsym ("spi_read", (unsigned long) spi_read_area);
+		newsym ("spi_write", (unsigned long) spi_write_area);
+		newsym ("spi_erase", (unsigned long) spi_erase_area);
+	}
 
 	/*
 	 *  Set up exception vectors.
