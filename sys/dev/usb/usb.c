@@ -1362,6 +1362,7 @@ int usb_new_device(struct usb_device *dev)
 #endif
 	usb_set_maxpacket(dev);
 	/* we set the default configuration here */
+	printf("usb_set_configuration %d\n", dev->config.bConfigurationValue);
 	if (usb_set_configuration(dev, dev->config.bConfigurationValue)) {
 		printf("failed to set default configuration len %d, status %lX\n",dev->act_len,dev->status);
 		return -1;
