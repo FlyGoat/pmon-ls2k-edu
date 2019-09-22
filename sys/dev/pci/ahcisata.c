@@ -79,6 +79,7 @@
 #include "ahci.h"
 #include "ata.h"
 
+//#define AHCI_DEBUG
 #ifdef AHCI_DEBUG
 #define ahci_debug(fmt, args...) printf("%s<%d>: "fmt, __func__,	\
 		__LINE__, ##args)
@@ -496,6 +497,7 @@ int ahci_sata_initialize(u32 reg, u32 port_no, struct ahci_sata_softc *sf)
 	bd->block_read = ahci_sata_read;
 	bd->block_write = ahci_sata_write;
 
+#if 0
 	sata = (ahci_sata_t *) malloc(sizeof(ahci_sata_t), M_DEVBUF, M_NOWAIT);
 	if (!sata) {
 		printf("alloc the sata device struct failed\n");
@@ -506,6 +508,7 @@ int ahci_sata_initialize(u32 reg, u32 port_no, struct ahci_sata_softc *sf)
 	sprintf(sata->name, "SATA%d", i);
 
 	sata->reg_base = reg;
+#endif
 
 	rc = ahci_port_start(sf);
 	diskid = ata_scsiop_inquiry(sf);
@@ -873,7 +876,7 @@ static int ata_scsiop_inquiry(struct ahci_sata_softc *sc)
 	if (ata_id_has_lba48((u16 *) tmpid)) {
 		sc->bd->lba48 = 1;
 	}
-#ifdef AHCI_DEBUG
+#if 1//def AHCI_DEBUG
 	dump_ataid((hd_driveid_t *) tmpid);
 #endif
 	return tmpid;
@@ -1280,6 +1283,8 @@ int cmd_sata_ahci(int argc, char *argv[])
 				rc++;
 			}
 			return rc;
+		} else if (strcmp(argv[1], "inquiry") == 0) {
+			ata_scsiop_inquiry(sata_dev_desc[curr_port]->priv);
 		}
 		return 1;
 	case 3:
@@ -1324,6 +1329,7 @@ int cmd_sata_ahci(int argc, char *argv[])
 			     curr_port, blk, cnt);
 
 			n = ahci_sata_read(sata_dev_desc[curr_port]->priv, blk, cnt, (u32 *) addr);
+#if 0
 			printf("the buffer address is 0x%x\n", addr);
 			for (i = 0; i < n * ATA_SECT_SIZE;) {
 				printf("%8x", *((u32 *) addr + i));
@@ -1332,6 +1338,7 @@ int cmd_sata_ahci(int argc, char *argv[])
 					printf("\n");
 
 			}
+#endif
 
 			/* flush cache after read */
 #if 0
