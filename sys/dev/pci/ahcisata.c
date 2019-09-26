@@ -638,7 +638,7 @@ static int ahci_port_start(struct ahci_sata_softc *sc)
 	u32 mem;
 
 	port_status = readl(port_mmio + PORT_SCR_STAT);
-	ahci_debug("Port %d, status: %x\n", port, port_status);
+	/*ahci_debug*/printf("Port %d, mmio:0x%x status: %x\n", port, port_mmio, port_status);
 	if ((port_status & 0xf) != 0x03) {
 		printf("No Link on this port!\n");
 		return -1;
@@ -677,6 +677,9 @@ static int ahci_port_start(struct ahci_sata_softc *sc)
 
 	mem += AHCI_CMD_TBL_HDR;
 	pp->cmd_tbl_sg = (struct ahci_sg *)mem;
+
+	writel_with_flush(0,
+			  port_mmio + PORT_LST_ADDR_HI);
 
 	writel_with_flush(PHYSADDR((u32) pp->cmd_slot),
 			  port_mmio + PORT_LST_ADDR);
@@ -765,16 +768,16 @@ static int get_ahci_device_data(struct ahci_sata_softc *sc, u8 * fis, int fis_le
     };
 	writel_with_flush(1, port_mmio + PORT_CMD_ISSUE);
 	if (waiting_for_cmd_completed(port_mmio + PORT_CMD_ISSUE, 2000000, 0x1)) {
-//		printf("%s <line%d>: timeout exit! %d bytes transferred.\n", __func__, __LINE__,
-//		       pp->cmd_slot->status);
+		printf("%s <line%d>: timeout exit! %d bytes transferred.\n", __func__, __LINE__,
+		       pp->cmd_slot->status);
 
-//        printf("PxIS: 0x%08x, PxSERR: 0x%08x\n", readl(port_mmio + PORT_IRQ_STAT), readl(port_mmio + PORT_SCR_ERR));
-//        printf("PxTFD: 0x%08x, PxSSTS: 0x%08x\n", readl(port_mmio + PORT_TFDATA), readl(port_mmio + PORT_SCR_STAT));
+        printf("PxIS: 0x%08x, PxSERR: 0x%08x\n", readl(port_mmio + PORT_IRQ_STAT), readl(port_mmio + PORT_SCR_ERR));
+        printf("PxTFD: 0x%08x, PxSSTS: 0x%08x\n", readl(port_mmio + PORT_TFDATA), readl(port_mmio + PORT_SCR_STAT));
 
 	    if (waiting_for_cmd_completed(port_mmio + PORT_CMD_ISSUE, 2000000, 0x1)) {
-//            printf("Waiting another 2s is useless.\n");
+            printf("Waiting another 2s is useless.\n");
         }else{
-//            printf("Waiting another 2s is usefull.\n");
+            printf("Waiting another 2s is usefull.\n");
         }
 
 		return -1;
@@ -1374,6 +1377,119 @@ int cmd_sata_ahci(int argc, char *argv[])
 		return rc;
 	}
 }
+
+#include <asm/mipsregs.h>
+#define ST0_ERL			0x00000004
+#define PM_4K		0x00000000
+#define PM_16K		0x00006000
+#define PM_64K		0x0001e000
+#define PM_256K		0x0007e000
+#define PM_1M		0x001fe000
+#define PM_4M		0x007fe000
+#define PM_16M		0x01ffe000
+#define PM_64M		0x07ffe000
+#define PM_256M		0x1fffe000
+
+#define PAGE_SHIFT	12
+#define PAGE_SIZE	(1UL << PAGE_SHIFT)
+#define PAGE_MASK       (~((1 << PAGE_SHIFT) - 1))
+
+#define ASID_MASK	0xff
+
+
+#define TLB_PAGE_SIZE 0x8000000
+#define TLB_PAGE_MASK  (((TLB_PAGE_SIZE>>12)-1)<<13)
+
+int tlb_set(int tlbs, int tlbe,int cachetype,unsigned int virtaddr, unsigned long long phyaddr)
+{
+	int pid;
+	int eflag=0;
+	int i;
+
+	pid = read_c0_entryhi() & ASID_MASK;
+
+	for(i=tlbs;i<tlbe;i++)
+	{
+		write_c0_index(i);
+		write_c0_pagemask(TLB_PAGE_MASK);
+		write_c0_entryhi(virtaddr | (pid));
+		write_c0_entrylo0((phyaddr >> 6)|cachetype); //uncached,global
+		write_c0_entrylo1(((phyaddr+(16<<20)) >> 6)|cachetype);
+		tlb_write_indexed();
+		virtaddr += TLB_PAGE_SIZE*2;
+		phyaddr += TLB_PAGE_SIZE*2;
+	}
+
+	return 0;
+}
+
+
+int ahci_host_init(struct ahci_probe_ent *probe_ent);
+void *ahci_init_newone(struct ahci_probe_ent *probe_ent);
+int testsata(int i)
+{
+	struct ahci_sata_softc *sc = sata_dev_desc[i]->priv;
+	struct ahci_probe_ent *probe_ent = sc->probe_ent;
+	u32 linkmap;
+	ahci_sata_info_t info;
+	struct ahci_sata_softc sf;
+	int spl = splhigh();
+	tlb_set(0, 0x40000000/TLB_PAGE_SIZE/2, (2<<3)|7, 0xc0000000, 0x40000000);
+
+	//ahci_host_init(probe_ent);
+	ahci_init_newone(probe_ent);
+
+
+	linkmap = probe_ent->link_port_map;
+	printf("ahci: linkmap=%x\n", linkmap);
+	for (i = 0; i < probe_ent->n_ports; i++) {
+		if (((linkmap >> i) & 0x01)) {
+			info.sata_reg_base =
+			    probe_ent->mmio_base + 0x100 + i * 0x80;
+			info.flags = i;
+			info.aa_link.aa_type = 0xff;	/* just for not match ide */
+			info.probe_ent = probe_ent;
+			memset(&sf, 0, sizeof(sf));
+			sf.probe_ent = probe_ent;	
+			sf.port_no = i;
+			sf.bs = ATA_SECT_SIZE;
+			sf.count = -1;
+	ahci_sata_initialize(probe_ent->mmio_base + 0x100 + i * 0x80, sf.port_no, &sf);
+		}
+	}
+
+
+	//ata_scsiop_inquiry(sata_dev_desc[i]->priv);
+	//splx(spl);
+	return 0;
+}
+
+asm (\
+"	.set push;"
+"	.set noreorder;\n"
+"	.global asm_testsata;\n"
+"oldra:\n"
+"	.dword 0;\n"
+"asm_testsata:;"
+"	la	$t0, oldra;\n"
+"	sd	$ra, ($t0);\n"
+"	mfc0	$t0, $12;"
+"	move    $k0, $t0	;"
+"	move    $k1, $sp;"
+"	li	$t1, 0xfffffffe;"
+"	and	$t0, $t1, $t0;"
+"	mtc0	$t0, $12;"
+"	lui	$sp, 0x8f01;"
+"	jal	testsata;"
+"	nop;"
+"	move  $sp, $k1;"
+"	mtc0	$k0, $12;"
+"	la	$t0, oldra;\n"
+"	ld	$ra, ($t0);\n"
+"	jr $ra;"
+"	nop;\n"
+"	.set pop;"
+);
 
 /*
  *  *  Command table registration

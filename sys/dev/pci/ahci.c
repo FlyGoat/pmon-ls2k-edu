@@ -77,7 +77,7 @@
 #include "include/ls1a.h"
 #endif
 
-static int ahci_host_init(struct ahci_probe_ent *probe_ent);
+int ahci_host_init(struct ahci_probe_ent *probe_ent);
 static void *ahci_init_one(u32 regbase);
 
 static int ahci_match(struct device *, void *, void *);
@@ -237,7 +237,7 @@ static void ahci_enable_ahci(void *mmio)
 	}
 }
 
-static int ahci_host_init(struct ahci_probe_ent *probe_ent)
+int ahci_host_init(struct ahci_probe_ent *probe_ent)
 {
 	volatile u8 *mmio = (volatile u8 *)probe_ent->mmio_base;
 	u32 tmp, cap_save;
@@ -436,5 +436,35 @@ static void *ahci_init_one(u32 regbase)
 
 err_out:
 	free(probe_ent, M_DEVBUF);
+	return NULL;
+}
+
+void *ahci_init_newone(struct ahci_probe_ent *probe_ent)
+{
+	int rc;
+	u32 regbase = probe_ent->mmio_base;
+
+	memset(probe_ent, 0, sizeof(struct ahci_probe_ent));
+
+	probe_ent->host_flags = ATA_FLAG_SATA
+	    | ATA_FLAG_NO_LEGACY | ATA_FLAG_MMIO | ATA_FLAG_PIO_DMA;
+
+	probe_ent->pio_mask = 0x1f;
+	probe_ent->udma_mask = 0x7f;	/*Fixme,assume to support UDMA6 */
+
+	probe_ent->mmio_base = regbase;
+	printf("%s:%d: regbase = %08x\n", __FUNCTION__, __LINE__, regbase);
+
+	/* initialize adapter */
+	rc = ahci_host_init(probe_ent);
+	if (rc)
+		goto err_out;
+
+	ahci_print_info(probe_ent);
+
+	return probe_ent;
+
+err_out:
+	//free(probe_ent, M_DEVBUF);
 	return NULL;
 }
