@@ -507,6 +507,7 @@ main()
 		if(!run)
 		{
 			run=1;
+
 #ifdef AUTOLOAD
 
 			if(getenv("FR") == NULL)
@@ -1146,7 +1147,7 @@ initstack (ac, av, addenv)
 #ifdef DTB
 #include "target/load_dtb.h"
 	if(!getenv("oldpmon"))
-	esys->of_dtb_addr = setup_dtb(ac, av);
+		esys->of_dtb_addr = setup_dtb(ac, av);
 #endif
 	md_setlr(NULL, (register_t)_exit);
 }
