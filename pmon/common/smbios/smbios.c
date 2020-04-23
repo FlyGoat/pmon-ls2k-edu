@@ -249,6 +249,9 @@ static void board_info(char *board_name)
         	strcpy(board_name, "Loongson-3A-780E-2w-V1.1-demo");
 #endif
 #endif
+#ifdef LOONGSON_2K
+        strcpy(board_name, LS2K_BOARD_NAME);
+#endif
 
 	return ;
 }

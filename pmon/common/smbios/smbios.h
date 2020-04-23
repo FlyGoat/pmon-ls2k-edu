@@ -33,7 +33,7 @@
 #define SMBIOS_PHYSICAL_ADDRESS 0x8fffe000
 #define SMBIOS_SIZE_LIMIT 0x800
 #if defined(LOONGSON_2K)
-#define LS2K_BOARD_NAME "Loongson-2K-SOC-1w-V0.6-demo"
+#define LS2K_BOARD_NAME "Loongson-2K-SOC-1w-V1.1-EDU_UDB"
 #endif
 
 extern void loongson_smbios_init(void);

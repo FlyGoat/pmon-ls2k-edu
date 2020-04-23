@@ -323,6 +323,13 @@ DPMCFG |= 0x8;
 	ls2h_m25p_probe();
 #endif
 #endif
+
+#ifdef HDA
+	*(volatile int *)0xbfe10420 &= ~(7<<4) ;
+	*(volatile int *)0xbfe10420 |= (1<<4) ;
+#endif
+	printf("420 val=0x%x\n",*(volatile int *)0xbfe10420);
+
  /*set pwm1,2 to gpio, gpio21, gpio22 to 1*/
  *(volatile int *)0xbfe10420 &= ~(0x6<<12);
  *(volatile int *)0xbfe10500 &= ~(0x3<<21);
@@ -374,6 +381,24 @@ void tgt_devconfig()
 		rc = vga_bios_init();
 	}
 #endif
+
+#if 1
+// GPIO36_RESET_PHY
+	*(volatile int *)0xbfe10420 &= ~(1<<20);
+	*(volatile int *)0xbfe10504 &= ~(1<<4);
+	delay(500);
+	*(volatile int *)0xbfe10514 &= ~(1<<4);
+	delay(3000);
+	*(volatile int *)0xbfe10514;
+	delay(1000);
+	*(volatile int *)0xbfe10514 &= ~(1<<4);
+	delay(1000);
+	*(volatile int *)0xbfe10514 &= ~(1<<4);
+	delay(4000);
+	*(volatile int *)0xbfe10514;
+	*(volatile int *)0xbfe10514 |= (1<<4);
+#endif
+
 #if NMOD_FRAMEBUFFER > 0
 	if (rc > 0) {
 		if(pcie_dev == NULL){
