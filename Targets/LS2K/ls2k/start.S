@@ -563,7 +563,7 @@ cp0_main:
     and t2, t2, t1
     sw  t2, 0x58(t0)
 
-	dli	t1, 0xff204f
+	dli	t1, 0xff204c
         sw      t1, 0x0(t0)
   
 //pcie1 port1
